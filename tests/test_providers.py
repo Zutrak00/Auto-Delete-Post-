@@ -174,3 +174,52 @@ def test_rate_limit_is_retried(monkeypatch):
 
     p.delete(Post(id="1", created_at=parse_time("2025-01-01T00:00:00Z")))
     assert len(responses.calls) == 2
+
+
+@responses.activate
+def test_tumblr_list_and_delete():
+    from autodelete.providers import TumblrProvider
+
+    api = "https://api.tumblr.com/v2/blog/myblog.tumblr.com"
+    responses.get(f"{api}/info", json={"response": {}})
+    responses.get(f"{api}/posts", json={"response": {"posts": [
+        {"id": 2, "id_string": "2", "timestamp": 1700000100, "summary": "mine", "note_count": 7,
+         "post_url": "https://myblog.tumblr.com/post/2"},
+        {"id": 1, "id_string": "1", "timestamp": 1700000000, "summary": "", "reblogged_from_id": "9"},
+    ]}}, match=[matchers.query_param_matcher({"offset": "0"}, strict_match=False)])
+    responses.get(f"{api}/posts", json={"response": {"posts": []}},
+                  match=[matchers.query_param_matcher({"offset": "2"}, strict_match=False)])
+    responses.post(f"{api}/post/delete", json={"response": {}})
+
+    p = TumblrProvider({"blog": "https://myblog.tumblr.com/", "consumer_key": "k", "consumer_secret": "s",
+                        "token": "t", "token_secret": "ts"})
+    p.login()
+    assert responses.calls[0].request.headers["Authorization"].startswith(b"OAuth ")
+    posts = list(p.iter_posts())
+    assert [(x.id, x.kind, x.likes) for x in posts] == [("2", "post", 7), ("1", "repost", 0)]
+    p.delete(posts[0])
+    assert responses.calls[-1].request.body == b"id=2"
+
+
+@responses.activate
+def test_facebook_page_list_and_delete():
+    from autodelete.providers import FacebookPageProvider
+    from autodelete.providers.facebook import GRAPH
+
+    responses.get(f"{GRAPH}/me", json={"id": "page1", "name": "My Page"})
+    responses.get(f"{GRAPH}/me/posts", json={
+        "data": [{"id": "page1_10", "message": "hello", "created_time": "2025-01-02T00:00:00+0000",
+                  "permalink_url": "https://facebook.com/10", "reactions": {"summary": {"total_count": 5}}}],
+        "paging": {"next": f"{GRAPH}/me/posts?after=c1&access_token=tok"},
+    }, match=[matchers.query_param_matcher({"limit": "100"}, strict_match=False)])
+    responses.get(f"{GRAPH}/me/posts", json={"data": [
+        {"id": "page1_9", "story": "My Page updated its cover photo", "created_time": "2024-01-02T00:00:00+0000"},
+    ]}, match=[matchers.query_param_matcher({"after": "c1"}, strict_match=False)])
+    responses.delete(f"{GRAPH}/page1_10", json={"success": True})
+
+    p = FacebookPageProvider({"page_token": "tok"})
+    p.login()
+    posts = list(p.iter_posts())
+    assert [(x.id, x.likes, x.text) for x in posts] == [
+        ("page1_10", 5, "hello"), ("page1_9", 0, "My Page updated its cover photo")]
+    p.delete(posts[0])

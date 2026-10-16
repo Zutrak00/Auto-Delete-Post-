@@ -5,3 +5,4 @@ __pycache__/
 # Holds your login tokens: never commit it.
 data/
 *.db
+.env

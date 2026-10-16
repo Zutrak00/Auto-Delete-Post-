@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 
 from .engine import run_account
@@ -17,6 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     web.add_argument("--host", default="127.0.0.1",
                      help="Use 0.0.0.0 only behind a password (AUTODELETE_PASSWORD) and HTTPS")
     web.add_argument("--port", type=int, default=8080)
+    web.add_argument("--open", action="store_true", help="Open the dashboard in your browser")
 
     run = sub.add_parser("run", help="Run every enabled account once (for cron / Task Scheduler)")
     run.add_argument("--preview", action="store_true", help="Never delete, even for Live accounts")
@@ -31,14 +33,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "web":
         from .web import create_app
 
-        if args.host not in ("127.0.0.1", "localhost"):
-            import os
-
-            if not os.environ.get("AUTODELETE_PASSWORD"):
-                print("Refusing to listen on a public address without AUTODELETE_PASSWORD set.", file=sys.stderr)
-                return 2
+        if args.host not in ("127.0.0.1", "localhost") and not os.environ.get("AUTODELETE_PASSWORD"):
+            print("Refusing to listen on a public address without AUTODELETE_PASSWORD set.", file=sys.stderr)
+            return 2
         app = create_app(store)
-        print(f"Open http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port} in your browser")
+        url = f"http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port}"
+        print(f"Open {url} in your browser. Press Ctrl+C to stop.")
+        if args.open:
+            import threading
+            import webbrowser
+
+            threading.Timer(1.0, webbrowser.open, args=(url,)).start()
         app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
         return 0
 

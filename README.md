@@ -11,6 +11,8 @@ likes, and anything tagged `#keep`". The app then cleans up on a schedule.
 | **Mastodon** (any server) | Posts, replies, boosts | Free. |
 | **Reddit** | Posts and comments | Free. Can overwrite comments with `[deleted]` before deleting them, so archive sites keep nothing. |
 | **Threads** | Posts and replies | Needs a Meta developer app with the `threads_delete` permission. Meta caps it at 100 deletes per day. |
+| **Tumblr** | Posts and reblogs | Free. Needs a Tumblr app plus a token from the Tumblr API console. |
+| **Facebook Pages** | Page posts | Pages you manage only, not personal profiles. Needs a Meta developer app. |
 
 **Not possible:** Instagram, Facebook personal profiles, TikTok and LinkedIn don't let outside apps delete your
 posts, so no app can do this automatically for them. The dashboard shows the manual bulk-delete screen for each one.
@@ -24,26 +26,22 @@ posts, so no app can do this automatically for them. The dashboard shows the man
 * Your login tokens are stored only on your computer, in `data/autodelete.db`. Keep that file private.
   It is git-ignored and its permissions are set to owner-only.
 
-## Install
+## Quick start (easiest)
 
-You need Python 3.10 or newer.
+1. Install **Python 3.10 or newer** from https://www.python.org/downloads/. On Windows, tick
+   *"Add python.exe to PATH"* during the install.
+2. Download this project: on GitHub click **Code → Download ZIP** and unzip it.
+3. Double-click the launcher for your computer:
+   * **Windows:** `start.bat`
+   * **Mac:** `start.command` (the first time, right-click it → **Open** to get past the security prompt)
+   * **Linux:** run `./start.sh` in a terminal
 
-```bash
-git clone https://github.com/zutrak00/auto-delete-post-.git
-cd auto-delete-post-
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+The first launch takes about a minute to set up. After that, the dashboard opens in your browser at
+http://127.0.0.1:8080. Keep the window open while you want the schedule to run. Close it to stop.
 
-## Use the website (dashboard)
+## Using the dashboard
 
-```bash
-python -m autodelete web
-```
-
-Open http://127.0.0.1:8080, click **+ Bluesky** (or another network) and follow the instructions on the page to
-get your login token. Then:
+Click **+ Bluesky** (or another network) and follow the instructions on the page to get your login token. Then:
 
 1. Set your rules and click **Connect & preview**.
 2. Click **Run preview** and check the "Would delete" list.
@@ -51,12 +49,37 @@ get your login token. Then:
 4. Click **Delete now**, or let the schedule handle it. By default it runs every 24 hours while the app is
    running; change this under **Schedule**.
 
+## Manual install (developers)
+
+```bash
+git clone https://github.com/zutrak00/auto-delete-post-.git
+cd auto-delete-post-
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python -m autodelete web --open
+```
+
 To reach the dashboard from another device, set a password and listen on all interfaces. Use HTTPS
 (a reverse proxy) if this is reachable from the internet:
 
 ```bash
 AUTODELETE_PASSWORD='choose-a-strong-one' python -m autodelete web --host 0.0.0.0
 ```
+
+## Run it 24/7 on a server (Docker)
+
+The schedule only runs while the app is running. To keep it going on a home server or VPS:
+
+```bash
+echo "AUTODELETE_PASSWORD=choose-a-strong-one" > .env
+docker compose up -d --build
+```
+
+The dashboard is then at http://127.0.0.1:8080 on that machine, behind the password. Accounts and history are
+saved in `./data`. The container only accepts connections from the machine itself. To reach it from elsewhere,
+put a reverse proxy with HTTPS in front (for example Caddy or nginx), or use an SSH tunnel:
+`ssh -L 8080:127.0.0.1:8080 you@server`.
 
 ## Run it without keeping the dashboard open
 
@@ -89,6 +112,11 @@ The dashboard shows these steps next to each form.
   `http://localhost:8080`. Copy the client ID and secret. Scheduled runs work best on an account without 2FA.
 * **X:** https://developer.x.com → create an app, set *User authentication settings* to **Read and write**, then
   generate the API key/secret and an access token/secret for your account under *Keys and tokens*.
+* **Tumblr:** register an app at https://www.tumblr.com/oauth/apps (callback URL can be `http://localhost:8080`),
+  then open https://api.tumblr.com/console, enter the app's keys, allow access and click *Show keys*.
+* **Facebook Page:** in the Graph API Explorer at https://developers.facebook.com, select your Page and grant
+  `pages_show_list`, `pages_read_engagement` and `pages_manage_posts`. Exchange the token for a long-lived one,
+  then call `/me/accounts`. The Page token it returns doesn't expire.
 * **Threads:** https://developers.facebook.com → create an app with the Threads use case and the permissions
   `threads_basic`, `threads_read_replies` and `threads_delete`. Add yourself as a tester and create a long-lived
   token. The app refreshes the token on every run so it doesn't expire.

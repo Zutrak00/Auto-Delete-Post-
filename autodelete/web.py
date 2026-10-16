@@ -17,8 +17,13 @@ from .store import Store
 
 def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flask:
     app = Flask(__name__)
-    app.secret_key = os.environ.get("AUTODELETE_SECRET_KEY") or secrets.token_hex(32)
     store = store or Store()
+    # Keep the session key in the database so logins survive restarts.
+    secret = os.environ.get("AUTODELETE_SECRET_KEY") or store.setting("secret_key")
+    if not secret:
+        secret = secrets.token_hex(32)
+        store.set_setting("secret_key", secret)
+    app.secret_key = secret
     app.config["STORE"] = store
     password = os.environ.get("AUTODELETE_PASSWORD", "")
 
