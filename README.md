@@ -176,12 +176,9 @@ The dashboard shows these steps next to each form.
 
 ## Publishing a new version (maintainer)
 
-Push a tag such as `v1.0.1`. GitHub Actions tests the code, builds the Windows, Mac and Linux apps and attaches
-them to a new release:
-
-```bash
-git tag v1.0.1 && git push origin v1.0.1
-```
+On GitHub, open **Actions → release → Run workflow** and type the new version (e.g. `v1.0.1`). Pushing a tag such
+as `v1.0.1` does the same. GitHub Actions tests the code, builds the Windows, Mac and Linux apps and attaches them
+to a new release.
 
 ## Development
 
