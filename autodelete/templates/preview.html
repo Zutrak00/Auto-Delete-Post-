@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Preview: {{ account.label }} <span class="muted small">· {{ provider.name }}</span></h1>
+
+<div class="card">
+  <p style="margin-top:0">A preview signs in, reads your posts and shows what the current rules would delete.
+  <strong>It never deletes anything.</strong></p>
+  <form method="post" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="btn primary" type="submit">{% if result %}Run preview again{% else %}Run preview{% endif %}</button>
+    <a class="btn" href="{{ url_for('edit_account', account_id=account.id) }}">Edit rules</a>
+  </form>
+</div>
+
+{% if result %}
+  {% for err in result.errors %}<div class="flash error">{{ err }}</div>{% endfor %}
+
+  <div class="row" style="margin-bottom:14px">
+    <div class="card" style="flex:1"><div class="stat">{{ result.scanned }}</div><div class="muted small">posts scanned</div></div>
+    <div class="card" style="flex:1"><div class="stat" style="color:var(--danger)">{{ result.to_delete|length }}</div><div class="muted small">would be deleted</div></div>
+    <div class="card" style="flex:1"><div class="stat" style="color:var(--ok)">{{ result.kept|length }}</div><div class="muted small">kept</div></div>
+  </div>
+
+  {% if result.to_delete and not account.live %}
+  <div class="notice">Happy with this list? Go back to <a href="{{ url_for('index') }}">Accounts</a> and press
+  <strong>Go Live</strong> so scheduled runs start deleting.</div>
+  {% endif %}
+
+  <h2>Would delete ({{ result.to_delete|length }}{% if result.to_delete|length >= account.rules.max_deletes_per_run %}, capped at {{ account.rules.max_deletes_per_run }} per run{% endif %})</h2>
+  {% if result.to_delete %}
+  <div class="card table-wrap"><table>
+    <tr><th>Date</th><th>Type</th><th>Post</th><th>Likes</th><th>ID</th></tr>
+    {% for p in result.to_delete %}
+    <tr><td>{{ p.created_at.strftime('%Y-%m-%d') }}</td><td>{{ p.kind }}</td>
+        <td class="text">{% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{{ (p.text or '(no text)')[:200] }}</a>{% else %}{{ (p.text or '(no text)')[:200] }}{% endif %}</td>
+        <td>{{ p.likes }}</td><td class="small muted">{{ p.id }}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="muted">Nothing matches your rules right now.</p>{% endif %}
+
+  <h2>Kept ({{ result.kept|length }})</h2>
+  {% if result.kept %}
+  <div class="card table-wrap"><table>
+    <tr><th>Date</th><th>Post</th><th>Why kept</th></tr>
+    {% for p, reason in result.kept[:300] %}
+    <tr><td>{{ p.created_at.strftime('%Y-%m-%d') }}</td>
+        <td class="text">{{ (p.text or '(no text)')[:160] }}</td><td>{{ reason }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if result.kept|length > 300 %}<p class="small muted">Showing the 300 newest.</p>{% endif %}
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

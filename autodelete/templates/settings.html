@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Schedule</h1>
+<form method="post" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <label class="check"><input type="checkbox" name="schedule_enabled" {% if enabled %}checked{% endif %}> Run automatically</label>
+  <label for="interval_hours">Every (hours)</label>
+  <input type="number" id="interval_hours" name="interval_hours" min="0.25" step="any" value="{{ interval }}">
+  <div class="help">Each run checks every scheduled account. Preview-mode accounts are only scanned; Live accounts delete.</div>
+  <p class="small muted">{% if next_run %}Next run: {{ next_run.strftime('%Y-%m-%d %H:%M UTC') }}{% else %}Automatic runs are off.{% endif %}</p>
+  <button class="btn primary" type="submit">Save</button>
+</form>
+<p class="small muted">The schedule only runs while this app is running. To run it without keeping the app open,
+use <code>python -m autodelete run</code> from cron or Task Scheduler (see the README).</p>
+{% endblock %}

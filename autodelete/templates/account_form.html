@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if account %}Edit {{ account.label }}{% else %}Connect {{ provider.name }}{% endif %}</h1>
+<form method="post">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+  <div class="card">
+    <h2 style="margin-top:0">1. Login details</h2>
+    <p class="small muted">{{ provider.setup_help }}</p>
+    <label for="label">Name for this account</label>
+    <input type="text" id="label" name="label" value="{{ account.label if account else provider.name }}">
+    {% for f in provider.fields %}
+      <label for="cred_{{ f.name }}">{{ f.label }}{% if not f.required %} <span class="muted">(optional)</span>{% endif %}</label>
+      {% if f.secret %}
+        <input type="password" id="cred_{{ f.name }}" name="cred_{{ f.name }}" autocomplete="off"
+               {% if account and account.credentials.get(f.name) %}placeholder="Saved. Leave blank to keep it."
+               {% elif f.required %}required{% endif %}>
+      {% else %}
+        <input type="text" id="cred_{{ f.name }}" name="cred_{{ f.name }}"
+               value="{{ account.credentials.get(f.name, '') if account else f.default }}"
+               {% if f.required %}required{% endif %}>
+      {% endif %}
+      {% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
+    {% endfor %}
+    <p class="small muted">Credentials are stored only on this computer, in <code>data/autodelete.db</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">2. What to delete</h2>
+    <label for="older_than_days">Delete posts older than (days)</label>
+    <input type="number" id="older_than_days" name="older_than_days" min="0" step="any" value="{{ rules.older_than_days }}">
+    <div class="help">0 deletes everything, including today's posts.</div>
+
+    <label class="check"><input type="checkbox" name="include_replies" {% if rules.include_replies %}checked{% endif %}> Include replies / comments</label>
+    <label class="check"><input type="checkbox" name="include_reposts" {% if rules.include_reposts %}checked{% endif %}> Include reposts (undo them)</label>
+
+    <h2>3. What to keep</h2>
+    <label class="check"><input type="checkbox" name="keep_pinned" {% if rules.keep_pinned %}checked{% endif %}> Keep my pinned post</label>
+
+    <label for="keep_if_likes_at_least">Keep posts with at least this many likes</label>
+    <input type="number" id="keep_if_likes_at_least" name="keep_if_likes_at_least" min="0"
+           value="{{ rules.keep_if_likes_at_least if rules.keep_if_likes_at_least is not none else '' }}" placeholder="Leave blank to ignore likes">
+
+    <label for="keep_keywords">Keep posts containing any of these words</label>
+    <input type="text" id="keep_keywords" name="keep_keywords" value="{{ rules.keep_keywords|join(', ') }}">
+    <div class="help">Comma-separated. Add <code>#keep</code> to any post to protect it.</div>
+
+    <label for="keep_ids">Never delete these post IDs</label>
+    <textarea id="keep_ids" name="keep_ids" rows="2">{{ rules.keep_ids|join(', ') }}</textarea>
+    <div class="help">Copy IDs from the Preview page.</div>
+
+    <label for="max_deletes_per_run">Maximum deletions per run</label>
+    <input type="number" id="max_deletes_per_run" name="max_deletes_per_run" min="1" value="{{ rules.max_deletes_per_run }}">
+    <div class="help">A safety cap. Remaining posts are handled on the next run.</div>
+
+    <label class="check"><input type="checkbox" name="enabled" {% if not account or account.enabled %}checked{% endif %}> Include this account in scheduled runs</label>
+  </div>
+
+  <div class="row">
+    <button class="btn primary" type="submit">{% if account %}Save{% else %}Connect &amp; preview{% endif %}</button>
+    <a class="btn" href="{{ url_for('index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
