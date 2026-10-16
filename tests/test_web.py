@@ -133,3 +133,54 @@ def test_healthz_is_public(monkeypatch):
     monkeypatch.setenv("AUTODELETE_PASSWORD", "pw")
     app = create_app(Store(":memory:"), start_scheduler=False)
     assert app.test_client().get("/healthz").get_data(as_text=True) == "auto-delete-posts ok"
+
+
+def test_browser_network_signup_goes_to_login_page(client):
+    token = csrf(client, "/accounts/new/x")
+    resp = client.post("/accounts/new/x", data={"csrf": token, "cred_username": "@jack",
+                                               "older_than_days": "30", "max_deletes_per_run": "100"})
+    acc = client.store.accounts()[0]
+    assert resp.headers["Location"].endswith(f"/accounts/{acc['id']}/login")
+    assert acc["label"] == "@jack" and acc["credentials"]["username"] == "@jack"
+    html = client.get(f"/accounts/{acc['id']}/login").get_data(as_text=True)
+    assert "Open login window" in html and "Import archive" in html
+
+
+def test_x_archive_import(client):
+    import io
+    import json
+    import zipfile
+
+    account_id = client.store.add_account("x", "@me", {"username": "me"}, {})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("data/tweets.js", "window.YTD.tweets.part0 = " + json.dumps(
+            [{"tweet": {"id_str": "1", "created_at": "Mon Jan 01 00:00:00 +0000 2018", "full_text": "hi"}}]))
+    token = csrf(client, f"/accounts/{account_id}/login")
+    client.post(f"/accounts/{account_id}/archive",
+                data={"csrf": token, "archive": (io.BytesIO(buf.getvalue()), "twitter.zip")},
+                content_type="multipart/form-data")
+    assert client.store.archive_count(account_id) == 1
+
+    client.post(f"/accounts/{account_id}/archive",
+                data={"csrf": token, "archive": (io.BytesIO(b"junk"), "twitter.zip")},
+                content_type="multipart/form-data")
+    assert client.store.archive_count(account_id) == 1  # a bad file doesn't wipe the imported archive
+
+
+def test_preview_runs_in_background(client, monkeypatch):
+    import time
+
+    from autodelete import web
+
+    def fake_run(store, account, live, result):
+        result.scanned = 3
+        result.finished = True
+
+    monkeypatch.setattr(web, "run_account", fake_run)
+    account_id = client.store.add_account("mastodon", "M", {"instance": "https://m.example", "access_token": "t"}, {})
+    token = csrf(client, f"/accounts/{account_id}/preview")
+    client.post(f"/accounts/{account_id}/preview", data={"csrf": token})
+    time.sleep(0.2)
+    html = client.get(f"/accounts/{account_id}/preview").get_data(as_text=True)
+    assert "posts scanned" in html and 'http-equiv="refresh"' not in html

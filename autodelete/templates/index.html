@@ -5,8 +5,7 @@
 {% if not accounts %}
 <div class="card">
   <p><strong>Nothing connected yet.</strong> Pick a network below to connect your first account.</p>
-  <p class="muted small">Not sure where to start? <strong>Bluesky</strong> and <strong>Mastodon</strong> take
-  a minute or two. New accounts start in <strong>Preview</strong> mode: the app shows you what it
+  <p class="muted small">Everything here is free. The networks at the top take a minute or two. New accounts start in <strong>Preview</strong> mode: the app shows you what it
   would delete and deletes nothing until you switch the account to <strong>Live</strong>.</p>
 </div>
 {% endif %}
@@ -50,6 +49,7 @@
       </form>
     {% endif %}
     <a class="btn" href="{{ url_for('edit_account', account_id=acc.id) }}">Edit rules</a>
+    {% if acc.browser %}<a class="btn" href="{{ url_for('browser_login', account_id=acc.id) }}">{% if acc.platform == 'x' %}Log in / archive{% else %}Log in again{% endif %}</a>{% endif %}
     <a class="btn" href="{{ url_for('history', account=acc.id) }}">History</a>
     <div class="spacer"></div>
     <form class="inline" method="post" action="{{ url_for('remove_account', account_id=acc.id) }}"
@@ -71,9 +71,9 @@
 
 <h2>Connect an account</h2>
 {% set groups = [
-  ("easy", "Quick and free"),
+  ("easy", "Quick: just log in"),
   ("medium", "Needs a free developer app (about 10 minutes)"),
-  ("advanced", "Advanced: needs a developer account"),
+  ("advanced", "Advanced: needs a free Meta developer account"),
 ] %}
 {% for ease, title in groups %}
 <p class="small muted" style="margin:16px 0 6px">{{ title }}</p>
@@ -88,8 +88,7 @@
 
 <h2>Not supported</h2>
 <div class="card small">
-  <p class="muted" style="margin-top:0">These networks don't let outside apps delete your posts, so no tool can
-  do it automatically. Here's the manual route:</p>
+  <p class="muted" style="margin-top:0">This app can't clean these up yet. Here's how to do it by hand:</p>
   {% for name, why in unsupported.items() %}
   <p><strong>{{ name }}</strong>: {{ why }}</p>
   {% endfor %}

@@ -42,6 +42,10 @@ class Provider:
     ease_note: str = ""
     # Seconds to wait between deletes so we stay under rate limits.
     delete_delay: float = 1.0
+    # Hard cap on deletions per run, whatever the user's rule says (None = no cap).
+    max_per_run: int | None = None
+    # Works through a logged-in browser window instead of an API token.
+    browser: bool = False
 
     def __init__(self, credentials: dict, session: requests.Session | None = None):
         self.credentials = {k: (v or "").strip() if isinstance(v, str) else v for k, v in credentials.items()}
@@ -70,6 +74,9 @@ class Provider:
 
     def delete(self, post: Post) -> None:
         raise NotImplementedError
+
+    def close(self) -> None:
+        """Release resources (e.g. a browser) after a run."""
 
     # --- helpers ----------------------------------------------------------
     def request(self, method: str, url: str, retries: int = 3, **kwargs) -> requests.Response:

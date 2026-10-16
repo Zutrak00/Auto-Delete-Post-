@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlparse
 import responses
 from responses import matchers
 
-from autodelete.providers import BlueskyProvider, MastodonProvider, RedditProvider, ThreadsProvider, XProvider
+from autodelete.providers import BlueskyProvider, MastodonProvider, RedditProvider, ThreadsProvider
 
 
 @responses.activate
@@ -102,35 +102,6 @@ def test_reddit_overwrites_then_deletes():
     urls = [c.request.url for c in responses.calls[-3:]]
     assert urls == ["https://oauth.reddit.com/api/editusertext", "https://oauth.reddit.com/api/del",
                     "https://oauth.reddit.com/api/del"]
-
-
-@responses.activate
-def test_x_list_and_delete():
-    api = "https://api.x.com/2"
-    responses.get(f"{api}/users/me", json={"data": {"id": "1", "username": "me", "pinned_tweet_id": "10"}})
-    responses.get(f"{api}/users/1/tweets", json={
-        "data": [
-            {"id": "10", "text": "pinned", "created_at": "2025-01-03T00:00:00.000Z", "public_metrics": {"like_count": 4}},
-            {"id": "9", "text": "RT", "created_at": "2025-01-02T00:00:00.000Z",
-             "referenced_tweets": [{"type": "retweeted", "id": "555"}]},
-        ],
-        "meta": {"next_token": "n1"},
-    }, match=[matchers.query_param_matcher({"max_results": "100"}, strict_match=False)])
-    responses.get(f"{api}/users/1/tweets", json={"data": [
-        {"id": "8", "text": "@a hi", "created_at": "2025-01-01T00:00:00.000Z",
-         "referenced_tweets": [{"type": "replied_to", "id": "7"}]},
-    ], "meta": {}}, match=[matchers.query_param_matcher({"pagination_token": "n1"}, strict_match=False)])
-    responses.delete(f"{api}/tweets/10", json={"data": {"deleted": True}})
-    responses.delete(f"{api}/users/1/retweets/555", json={"data": {"retweeted": False}})
-
-    p = XProvider({"api_key": "k", "api_secret": "s", "access_token": "t", "access_secret": "ts"})
-    p.login()
-    assert responses.calls[0].request.headers["Authorization"].startswith(b"OAuth ")
-    posts = list(p.iter_posts())
-    assert [(x.id, x.kind, x.pinned) for x in posts] == [("10", "post", True), ("9", "repost", False), ("8", "reply", False)]
-    assert posts[0].likes == 4 and posts[0].url == "https://x.com/me/status/10"
-    p.delete(posts[0])
-    p.delete(posts[1])
 
 
 @responses.activate

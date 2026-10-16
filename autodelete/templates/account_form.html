@@ -21,7 +21,8 @@
     <h2 style="margin-top:0">1. Login details</h2>
     <p class="small muted">{{ provider.setup_help }}</p>
     <label for="label">Name for this account</label>
-    <input type="text" id="label" name="label" value="{{ account.label if account else provider.name }}">
+    <input type="text" id="label" name="label" value="{{ account.label if account else '' }}"
+           placeholder="{{ '@username' if provider.browser else provider.name }}">
     {% for f in provider.fields %}
       <label for="cred_{{ f.name }}">{{ f.label }}{% if not f.required %} <span class="muted">(optional)</span>{% endif %}</label>
       {% if f.secret %}
@@ -35,7 +36,7 @@
       {% endif %}
       {% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
     {% endfor %}
-    <p class="small muted">Credentials are stored only on this computer.</p>
+    <p class="small muted">{% if provider.browser %}You'll log in on the next page.{% else %}Credentials are stored only on this computer.{% endif %}</p>
   </div>
 
   <div class="card">
@@ -70,7 +71,7 @@
   </div>
 
   <div class="row">
-    <button class="btn primary" type="submit">{% if account %}Save{% else %}Connect &amp; preview{% endif %}</button>
+    <button class="btn primary" type="submit">{% if account %}Save{% elif provider.browser %}Next: log in{% else %}Connect &amp; preview{% endif %}</button>
     <a class="btn" href="{{ url_for('index') }}">Cancel</a>
   </div>
 </form>

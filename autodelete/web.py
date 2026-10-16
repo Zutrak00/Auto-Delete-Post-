@@ -3,14 +3,17 @@ from __future__ import annotations
 import hmac
 import os
 import secrets
+import shutil
 import threading
 
 import requests
 
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
-from .engine import run_account
+from . import browser
+from .engine import RunResult, run_account
 from .providers import PROVIDERS, UNSUPPORTED, mastodon
+from .providers.x_browser import parse_archive
 from .rules import Rules
 from .scheduler import Scheduler, next_run
 from .store import Store
@@ -30,6 +33,8 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
     app.secret_key = secret
     app.config["STORE"] = store
     password = os.environ.get("AUTODELETE_PASSWORD", "")
+
+    previews: dict[int, RunResult] = {}
 
     if start_scheduler:
         app.config["SCHEDULER"] = Scheduler(store)
@@ -80,6 +85,8 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
         for acc in accounts:
             acc["platform_name"] = PROVIDERS[acc["platform"]].name if acc["platform"] in PROVIDERS else acc["platform"]
             acc["deleted_total"] = store.deleted_count(acc["id"])
+            acc["rules"] = Rules.from_dict(acc["rules"])  # fills in defaults for settings added later
+            acc["browser"] = acc["platform"] in PROVIDERS and PROVIDERS[acc["platform"]].browser
         return render_template(
             "index.html",
             accounts=accounts,
@@ -95,9 +102,12 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
         if request.method == "POST":
             creds = _credentials_from_form(provider, {})
             rules = _rules_from_form()
-            label = request.form.get("label", "").strip() or provider.name
+            username = creds.get("username", "").lstrip("@")
+            label = request.form.get("label", "").strip() or (f"@{username}" if username else provider.name)
             account_id = store.add_account(platform, label, creds, rules.to_dict(),
                                            live=False, enabled="enabled" in request.form)
+            if provider.browser:
+                return redirect(url_for("browser_login", account_id=account_id))
             flash("Account added in Preview mode. Run a preview to check what would be deleted, "
                   "then switch it to Live.", "ok")
             return redirect(url_for("preview", account_id=account_id))
@@ -160,9 +170,49 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
         return render_template("account_form.html", provider=provider, account=account,
                                rules=Rules.from_dict(account["rules"]))
 
+    @app.route("/accounts/<int:account_id>/login", methods=["GET", "POST"])
+    def browser_login(account_id):
+        account = store.account(account_id) or abort(404)
+        provider = PROVIDERS[account["platform"]]
+        if not provider.browser:
+            abort(404)
+        state = browser.LOGIN_STATES.get(account_id)
+        if request.method == "POST":
+            if not state or state["status"] not in ("opening", "waiting"):
+                def save(info):
+                    creds = dict(store.account(account_id)["credentials"])
+                    creds.update({k: v for k, v in info.items() if v})
+                    store.update_account(account_id, credentials=creds)
+
+                browser.start_login(account_id, browser.profile_dir(store.data_dir, account_id),
+                                    provider.login_url, provider.is_logged_in, save)
+            return redirect(url_for("browser_login", account_id=account_id))
+        return render_template("browser_login.html", account=account, provider=provider, state=state,
+                               archive_count=store.archive_count(account_id))
+
+    @app.post("/accounts/<int:account_id>/archive")
+    def import_archive(account_id):
+        account = store.account(account_id) or abort(404)
+        upload = request.files.get("archive")
+        if account["platform"] != "x" or not upload or not upload.filename:
+            flash("Choose the archive file you downloaded from X first.", "error")
+            return redirect(url_for("browser_login", account_id=account_id))
+        try:
+            items = parse_archive(upload.stream, upload.filename)
+        except (ValueError, KeyError) as exc:
+            flash(str(exc) if isinstance(exc, ValueError) else "That archive's format wasn't recognised.", "error")
+            return redirect(url_for("browser_login", account_id=account_id))
+        store.set_archive(account_id, items)
+        flash(f"Imported {len(items)} posts from your X archive.", "ok")
+        return redirect(url_for("browser_login", account_id=account_id))
+
     @app.post("/accounts/<int:account_id>/delete")
     def remove_account(account_id):
         store.delete_account(account_id)
+        browser.LOGIN_STATES.pop(account_id, None)
+        previews.pop(account_id, None)
+        # Removing the saved browser profile logs this app out of the site.
+        shutil.rmtree(browser.profile_dir(store.data_dir, account_id), ignore_errors=True)
         flash("Account removed. Its saved credentials were deleted.", "ok")
         return redirect(url_for("index"))
 
@@ -178,10 +228,18 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
     @app.route("/accounts/<int:account_id>/preview", methods=["GET", "POST"])
     def preview(account_id):
         account = store.account(account_id) or abort(404)
-        result = None
+        result = previews.get(account_id)
         if request.method == "POST":
-            result = run_account(store, account, live=False)
+            # Scanning can take minutes (browser-based networks scroll the whole profile), so run it in the
+            # background and let the page refresh itself until it's done.
+            if not result or result.finished:
+                result = previews[account_id] = RunResult(account_id=account_id, live=False)
+                threading.Thread(target=run_account, args=(store, account),
+                                 kwargs={"live": False, "result": result}, daemon=True).start()
+            return redirect(url_for("preview", account_id=account_id))
+        account["rules"] = Rules.from_dict(account["rules"])
         return render_template("preview.html", account=account, result=result,
+                               running=bool(result and not result.finished),
                                provider=PROVIDERS[account["platform"]])
 
     @app.post("/accounts/<int:account_id>/run")

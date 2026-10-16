@@ -84,4 +84,7 @@ jobs:
             - **Mac:** after the warning, open **System Settings → Privacy & Security**, scroll down and click
               **Open Anyway** next to AutoDeletePosts.
 
+            For **X** and **Instagram**, click **Open login window** and log in as usual. It's free, and needs Google
+            Chrome or Microsoft Edge (Windows always has Edge).
+
             New accounts start in **Preview** mode, so nothing is deleted until you choose **Go Live**.

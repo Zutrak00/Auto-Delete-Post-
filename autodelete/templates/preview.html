@@ -1,18 +1,25 @@
 {% extends "base.html" %}
+{% block head %}{% if running %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
 {% block content %}
 <h1>Preview: {{ account.label }} <span class="muted small">· {{ provider.name }}</span></h1>
 
 <div class="card">
   <p style="margin-top:0">A preview signs in, reads your posts and shows what the current rules would delete.
   <strong>It never deletes anything.</strong></p>
+  {% if running %}
+  <p><strong>Scanning your posts… {{ result.scanned }} found so far.</strong></p>
+  <p class="small muted" style="margin-bottom:0">{% if provider.browser %}The app is scrolling through your profile in
+    the background. This can take a few minutes for big accounts.{% endif %} This page updates by itself.</p>
+  {% else %}
   <form method="post" class="row">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <button class="btn primary" type="submit">{% if result %}Run preview again{% else %}Run preview{% endif %}</button>
     <a class="btn" href="{{ url_for('edit_account', account_id=account.id) }}">Edit rules</a>
   </form>
+  {% endif %}
 </div>
 
-{% if result %}
+{% if result and not running %}
   {% for err in result.errors %}<div class="flash error">{{ err }}</div>{% endfor %}
 
   <div class="row" style="margin-bottom:14px">
@@ -26,7 +33,7 @@
   <strong>Go Live</strong> so scheduled runs start deleting.</div>
   {% endif %}
 
-  <h2>Would delete ({{ result.to_delete|length }}{% if result.to_delete|length >= account.rules.max_deletes_per_run %}, capped at {{ account.rules.max_deletes_per_run }} per run{% endif %})</h2>
+  <h2>Would delete ({{ result.to_delete|length }}{% set cap = [account.rules.max_deletes_per_run, provider.max_per_run or account.rules.max_deletes_per_run]|min %}{% if result.to_delete|length >= cap %}, capped at {{ cap }} per run{% endif %})</h2>
   {% if result.to_delete %}
   <div class="card table-wrap"><table>
     <tr><th>Date</th><th>Type</th><th>Post</th><th>Likes</th><th>ID</th></tr>

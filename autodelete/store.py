@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import sys
+import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,12 @@ CREATE TABLE IF NOT EXISTS history (
     post_text TEXT,
     post_date TEXT,
     detail TEXT
+);
+CREATE TABLE IF NOT EXISTS archived_posts (
+    account_id INTEGER NOT NULL,
+    post_id TEXT NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (account_id, post_id)
 );
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
@@ -78,6 +85,13 @@ class Store:
                 os.chmod(self.path, 0o600)
             except OSError:
                 pass
+
+    @property
+    def data_dir(self) -> Path:
+        """Folder for files that sit next to the database (browser logins, debug screenshots)."""
+        if str(self.path) == ":memory:":
+            return Path(tempfile.gettempdir()) / "autodelete-memory"
+        return self.path.parent
 
     def _exec(self, sql: str, args: tuple = ()) -> sqlite3.Cursor:
         with self._lock:
@@ -128,6 +142,26 @@ class Store:
     def delete_account(self, account_id: int) -> None:
         self._exec("DELETE FROM accounts WHERE id = ?", (account_id,))
         self._exec("DELETE FROM history WHERE account_id = ?", (account_id,))
+        self._exec("DELETE FROM archived_posts WHERE account_id = ?", (account_id,))
+
+    # --- imported archives (posts too old for the live timeline) -------------------------
+    def set_archive(self, account_id: int, items: list[dict]) -> None:
+        with self._lock:
+            self.db.execute("DELETE FROM archived_posts WHERE account_id = ?", (account_id,))
+            self.db.executemany(
+                "INSERT OR REPLACE INTO archived_posts (account_id, post_id, data) VALUES (?,?,?)",
+                [(account_id, item["id"], json.dumps(item)) for item in items])
+            self.db.commit()
+
+    def archive(self, account_id: int) -> list[dict]:
+        rows = self._all("SELECT data FROM archived_posts WHERE account_id = ?", (account_id,))
+        return [json.loads(r["data"]) for r in rows]
+
+    def archive_count(self, account_id: int) -> int:
+        return self._all("SELECT COUNT(*) AS n FROM archived_posts WHERE account_id = ?", (account_id,))[0]["n"]
+
+    def forget_archived(self, account_id: int, post_id: str) -> None:
+        self._exec("DELETE FROM archived_posts WHERE account_id = ? AND post_id = ?", (account_id, post_id))
 
     # --- history -------------------------------------------------------------
     def log(self, account_id: int, action: str, post=None, detail: str = "") -> None:
