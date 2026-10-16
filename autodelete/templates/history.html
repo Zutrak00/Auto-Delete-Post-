@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>History{% if account %}: {{ account.label }}{% endif %}</h1>
+{% if account %}<p><a href="{{ url_for('history') }}">Show all accounts</a></p>{% endif %}
+{% if rows %}
+<div class="card table-wrap"><table>
+  <tr><th>When (UTC)</th><th>Account</th><th>Result</th><th>Post</th><th>Posted</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td class="small">{{ r.ts.replace('T', ' ')[:16] }}</td>
+    <td>{{ r.label or '(removed)' }}</td>
+    <td>{% if r.action == 'deleted' %}<span class="chip">deleted</span>{% else %}<span class="chip live">{{ r.action }}</span>{% endif %}</td>
+    <td class="text">{{ (r.post_text or '')[:160] }}{% if r.detail %}<div class="small muted">{{ r.detail[:300] }}</div>{% endif %}</td>
+    <td class="small">{{ (r.post_date or '')[:10] }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}
+<p class="muted">Nothing has been deleted yet. Deletions and errors from live runs appear here.</p>
+{% endif %}
+{% endblock %}

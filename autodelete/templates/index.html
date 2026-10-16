@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Your accounts</h1>
+
+{% if not accounts %}
+<div class="card">
+  <p><strong>Nothing connected yet.</strong> Pick a network below to connect your first account.</p>
+  <p class="muted small">Everything here is free. The networks at the top take a minute or two. New accounts start in <strong>Preview</strong> mode: the app shows you what it
+  would delete and deletes nothing until you switch the account to <strong>Live</strong>.</p>
+</div>
+{% endif %}
+
+{% for acc in accounts %}
+<div class="card">
+  <div class="row">
+    <div>
+      <div><strong>{{ acc.label }}</strong> <span class="muted">· {{ acc.platform_name }}</span></div>
+      <div class="small muted">
+        Deletes posts older than {{ '%g'|format(acc.rules.older_than_days) }} days
+        {% if acc.rules.keep_if_likes_at_least %}· keeps posts with {{ acc.rules.keep_if_likes_at_least }}+ likes{% endif %}
+        {% if acc.rules.keep_keywords %}· keeps posts containing {{ acc.rules.keep_keywords|join(', ') }}{% endif %}
+      </div>
+    </div>
+    <div class="spacer"></div>
+    {% if acc.live %}<span class="chip live">LIVE</span>{% else %}<span class="chip">Preview</span>{% endif %}
+    {% if not acc.enabled %}<span class="chip off">Not scheduled</span>{% endif %}
+  </div>
+  <div class="small muted" style="margin-top:8px">
+    {% if acc.last_run %}Last run {{ acc.last_run.replace('T', ' ')[:16] }} UTC: {{ acc.last_status }}{% else %}Never run{% endif %}
+    · {{ acc.deleted_total }} deleted in total
+  </div>
+  <div class="row" style="margin-top:12px">
+    <a class="btn" href="{{ url_for('preview', account_id=acc.id) }}">Preview</a>
+    {% if acc.live %}
+      <form class="inline" method="post" action="{{ url_for('run_now', account_id=acc.id) }}"
+            onsubmit='return confirm({{ ("Delete matching posts from " ~ acc.label ~ " now? This cannot be undone.")|tojson }})'>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn danger solid">Delete now</button>
+      </form>
+      <form class="inline" method="post" action="{{ url_for('set_mode', account_id=acc.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="live" value="0">
+        <button class="btn">Switch to Preview</button>
+      </form>
+    {% else %}
+      <form class="inline" method="post" action="{{ url_for('set_mode', account_id=acc.id) }}"
+            onsubmit="return confirm('Turn on Live mode? Scheduled runs will permanently delete matching posts.')">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="live" value="1">
+        <button class="btn danger">Go Live</button>
+      </form>
+    {% endif %}
+    <a class="btn" href="{{ url_for('edit_account', account_id=acc.id) }}">Edit rules</a>
+    {% if acc.browser %}<a class="btn" href="{{ url_for('browser_login', account_id=acc.id) }}">{% if acc.platform == 'x' %}Log in / archive{% else %}Log in again{% endif %}</a>{% endif %}
+    <a class="btn" href="{{ url_for('history', account=acc.id) }}">History</a>
+    <div class="spacer"></div>
+    <form class="inline" method="post" action="{{ url_for('remove_account', account_id=acc.id) }}"
+          onsubmit='return confirm({{ ("Disconnect " ~ acc.label ~ "? Your posts are not affected.")|tojson }})'>
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn small">Disconnect</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+{% if accounts %}
+<p class="small muted">
+  {% if next_run %}Next scheduled run: {{ next_run.strftime('%Y-%m-%d %H:%M UTC') }} (every {{ interval }} h).
+  {% else %}Automatic runs are off.{% endif %}
+  <a href="{{ url_for('settings') }}">Change schedule</a>
+</p>
+{% endif %}
+
+<h2>Connect an account</h2>
+{% set groups = [
+  ("easy", "Quick: just log in"),
+  ("medium", "Needs a free developer app (about 10 minutes)"),
+  ("advanced", "Advanced: needs a free Meta developer account"),
+] %}
+{% for ease, title in groups %}
+<p class="small muted" style="margin:16px 0 6px">{{ title }}</p>
+<div class="grid">
+  {% for key, p in providers.items() if p.ease == ease %}
+  <a class="btn provider" href="{{ url_for('new_account', platform=key) }}">
+    <strong>+ {{ p.name }}</strong><span class="small muted">{{ p.ease_note }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<h2>Not supported</h2>
+<div class="card small">
+  <p class="muted" style="margin-top:0">This app can't clean these up yet. Here's how to do it by hand:</p>
+  {% for name, why in unsupported.items() %}
+  <p><strong>{{ name }}</strong>: {{ why }}</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+name: release
+
+# Builds the no-install apps for Windows, macOS and Linux.
+# Pushing a tag like v1.0.0 publishes them on the Releases page; running it by hand just uploads build artifacts.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: AutoDeletePosts-Windows.zip
+          - os: macos-latest
+            asset: AutoDeletePosts-Mac.zip
+          - os: ubuntu-latest
+            asset: AutoDeletePosts-Linux.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt pyinstaller
+      - run: pytest -q
+      - run: pyinstaller --noconfirm AutoDeletePosts.spec
+      - name: Smoke-test the built app
+        run: |
+          exe=dist/AutoDeletePosts
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          "$exe" --db "$RUNNER_TEMP/smoke.db" list
+      - name: Package
+        run: |
+          cp README.md dist/README.md
+          cd dist
+          case "${{ matrix.os }}" in
+            windows-*) 7z a "../${{ matrix.asset }}" AutoDeletePosts.exe README.md ;;
+            macos-*)   zip -9 "../${{ matrix.asset }}" AutoDeletePosts README.md ;;
+            *)         tar czf "../${{ matrix.asset }}" AutoDeletePosts README.md ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            AutoDeletePosts-Windows.zip
+            AutoDeletePosts-Mac.zip
+            AutoDeletePosts-Linux.tar.gz
+          body: |
+            ## Download
+
+            | Your computer | File |
+            |---|---|
+            | Windows | **AutoDeletePosts-Windows.zip** |
+            | Mac (Apple Silicon: M1 or newer) | **AutoDeletePosts-Mac.zip** |
+            | Linux | **AutoDeletePosts-Linux.tar.gz** |
+
+            Unzip it and double-click **AutoDeletePosts**. A small window opens and the dashboard appears in
+            your browser. Keep the window open while you use it.
+
+            **First launch warnings.** The app isn't signed by Apple or Microsoft, so your computer will ask once:
+            - **Windows:** "Windows protected your PC" → click **More info** → **Run anyway**.
+            - **Mac:** after the warning, open **System Settings → Privacy & Security**, scroll down and click
+              **Open Anyway** next to AutoDeletePosts.
+
+            For **X** and **Instagram**, click **Open login window** and log in as usual. It's free, and needs Google
+            Chrome or Microsoft Edge (Windows always has Edge).
+
+            New accounts start in **Preview** mode, so nothing is deleted until you choose **Go Live**.

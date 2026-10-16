@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Holds your login tokens: never commit it.
+data/
+*.db
+.env
+build/
+dist/

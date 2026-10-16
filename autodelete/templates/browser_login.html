@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block head %}{% if state and state.status in ('opening', 'waiting') %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block content %}
+<h1>Log in to {{ provider.name }}</h1>
+
+<div class="card">
+  {% if state and state.status == 'opening' %}
+    <p style="margin:0"><strong>Opening a browser window…</strong></p>
+  {% elif state and state.status == 'waiting' %}
+    <p style="margin-top:0"><strong>A browser window is open.</strong> Log in to {{ provider.name }} there as you
+    normally would. Two-factor codes work too.</p>
+    <p class="small muted" style="margin-bottom:0">This page notices when you're logged in and closes the window
+    for you. It may be behind this browser window.</p>
+  {% elif state and state.status == 'ok' %}
+    <p style="margin-top:0"><strong>✅ Logged in.</strong> The app keeps this login on this computer, so you won't
+    need to do it again unless {{ provider.name }} logs you out.</p>
+    <form method="post" action="{{ url_for('preview', account_id=account.id) }}" class="row">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">Next: preview what would be deleted</button>
+    </form>
+  {% else %}
+    {% if state and state.status == 'failed' %}<div class="flash error">{{ state.message }}</div>{% endif %}
+    <p style="margin-top:0">This app works with {{ provider.name }} through a normal browser window, the same way
+    you would by hand. It's free and needs no developer account.</p>
+    <ol>
+      <li>Click the button below. A browser window opens at the {{ provider.name }} login page.</li>
+      <li>Log in as usual.</li>
+      <li>Come back here. The window closes by itself once you're logged in.</li>
+    </ol>
+    <form method="post" class="row">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">Open login window</button>
+    </form>
+  {% endif %}
+</div>
+
+{% if account.platform == 'x' %}
+<div class="card">
+  <h2 style="margin-top:0">Optional: clean up your whole history</h2>
+  <p class="small">X only shows your latest few thousand posts. To reach older ones, import your free X archive:</p>
+  <ol class="small">
+    <li>On X go to <strong>Settings → Your account → Download an archive of your data</strong> and request it.
+      X emails you when it's ready (usually within a day).</li>
+    <li>Download the .zip file and choose it below. There's no need to unzip it.</li>
+  </ol>
+  <form method="post" action="{{ url_for('import_archive', account_id=account.id) }}" enctype="multipart/form-data" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="file" name="archive" accept=".zip,.js" required>
+    <button class="btn" type="submit">Import archive</button>
+  </form>
+  <p class="small muted" style="margin-bottom:0">{% if archive_count %}{{ archive_count }} posts from your archive
+    are waiting to be checked.{% else %}No archive imported yet.{% endif %}</p>
+</div>
+{% endif %}
+
+<div class="notice small">Automating {{ provider.name }} is against its rules. Free tools like this are widely used,
+  but there's a small risk {{ provider.name }} temporarily locks the account. The app deletes slowly to keep that
+  risk low{% if provider.max_per_run %} (at most {{ provider.max_per_run }} posts per run){% endif %}.</div>
+{% endblock %}

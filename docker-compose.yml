@@ -1,0 +1,12 @@
+services:
+  autodelete:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Required: the dashboard's login password. Put it in a .env file next to this one.
+      AUTODELETE_PASSWORD: ${AUTODELETE_PASSWORD:?Set AUTODELETE_PASSWORD in .env}
+    volumes:
+      - ./data:/app/data
+    ports:
+      # Only reachable from this machine. Put a reverse proxy with HTTPS in front to expose it.
+      - "127.0.0.1:8080:8080"
