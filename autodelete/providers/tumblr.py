@@ -11,6 +11,8 @@ from .base import Field, Provider
 class TumblrProvider(Provider):
     key = "tumblr"
     name = "Tumblr"
+    ease = "medium"
+    ease_note = "About 10 minutes: needs a free Tumblr app."
     fields = [
         Field("blog", "Blog name", help="e.g. myblog (from myblog.tumblr.com)"),
         Field("consumer_key", "OAuth consumer key"),

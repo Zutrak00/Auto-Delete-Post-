@@ -19,6 +19,8 @@ def split_at_uri(uri: str) -> tuple[str, str, str]:
 class BlueskyProvider(Provider):
     key = "bluesky"
     name = "Bluesky"
+    ease = "easy"
+    ease_note = "About 2 minutes: just make an app password."
     fields = [
         Field("handle", "Handle", help="e.g. you.bsky.social"),
         Field("app_password", "App password", secret=True),

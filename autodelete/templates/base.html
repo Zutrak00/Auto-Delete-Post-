@@ -36,13 +36,14 @@
   .small { font-size: 13px; }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .spacer { flex: 1; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
   .btn { display: inline-block; border: 1px solid var(--line); background: var(--card); color: var(--text);
          padding: 7px 14px; border-radius: 7px; font: inherit; cursor: pointer; text-decoration: none; }
   .btn:hover { border-color: var(--muted); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
   .btn.danger { color: var(--danger); }
   .btn.danger.solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.provider { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; }
   form.inline { display: inline; }
   .chip { display: inline-block; padding: 1px 9px; border-radius: 99px; background: var(--chip); font-size: 12px; }
   .chip.live { background: var(--danger); color: #fff; }

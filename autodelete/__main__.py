@@ -3,10 +3,17 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import socket
 import sys
+import threading
+import urllib.request
+import webbrowser
 
 from .engine import run_account
 from .store import Store
+from .web import HEALTH_TEXT
+
+DEFAULT_PORT = 8080
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -17,7 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     web = sub.add_parser("web", help="Start the web dashboard (default http://127.0.0.1:8080)")
     web.add_argument("--host", default="127.0.0.1",
                      help="Use 0.0.0.0 only behind a password (AUTODELETE_PASSWORD) and HTTPS")
-    web.add_argument("--port", type=int, default=8080)
+    web.add_argument("--port", type=int, help=f"Default {DEFAULT_PORT}, or the next free port if it's taken")
     web.add_argument("--open", action="store_true", help="Open the dashboard in your browser")
 
     run = sub.add_parser("run", help="Run every enabled account once (for cron / Task Scheduler)")
@@ -36,15 +43,30 @@ def main(argv: list[str] | None = None) -> int:
         if args.host not in ("127.0.0.1", "localhost") and not os.environ.get("AUTODELETE_PASSWORD"):
             print("Refusing to listen on a public address without AUTODELETE_PASSWORD set.", file=sys.stderr)
             return 2
+        port = args.port
+        if port is None:
+            # Use the first free port in a fixed range, so a second launch can find the first one.
+            for candidate in range(DEFAULT_PORT, DEFAULT_PORT + 10):
+                if _already_running(candidate):
+                    url = f"http://127.0.0.1:{candidate}"
+                    print(f"Auto-Delete Posts is already running at {url}")
+                    if args.open:
+                        webbrowser.open(url)
+                    return 0
+                if _port_free(args.host, candidate):
+                    port = candidate
+                    break
+            else:
+                print(f"Ports {DEFAULT_PORT}-{DEFAULT_PORT + 9} are all in use. Close another program or "
+                      "pass --port.", file=sys.stderr)
+                return 2
         app = create_app(store)
-        url = f"http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{args.port}"
-        print(f"Open {url} in your browser. Press Ctrl+C to stop.")
+        url = f"http://{'127.0.0.1' if args.host == '0.0.0.0' else args.host}:{port}"
+        print(f"Auto-Delete Posts is running at {url}")
+        print("Keep this window open while you use it. Close it (or press Ctrl+C) to stop.")
         if args.open:
-            import threading
-            import webbrowser
-
             threading.Timer(1.0, webbrowser.open, args=(url,)).start()
-        app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
+        app.run(host=args.host, port=port, debug=False, use_reloader=False)
         return 0
 
     if args.command == "list":
@@ -66,6 +88,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  error: {err}")
             exit_code = 1
     return exit_code
+
+
+def _port_free(host: str, port: int) -> bool:
+    with socket.socket() as sock:
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def _already_running(port: int) -> bool:
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=2) as resp:
+            return resp.read().decode() == HEALTH_TEXT
+    except (OSError, ValueError):
+        return False
 
 
 if __name__ == "__main__":

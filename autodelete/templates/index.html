@@ -5,7 +5,8 @@
 {% if not accounts %}
 <div class="card">
   <p><strong>Nothing connected yet.</strong> Pick a network below to connect your first account.</p>
-  <p class="muted small">New accounts start in <strong>Preview</strong> mode: the app shows you what it
+  <p class="muted small">Not sure where to start? <strong>Bluesky</strong> and <strong>Mastodon</strong> take
+  a minute or two. New accounts start in <strong>Preview</strong> mode: the app shows you what it
   would delete and deletes nothing until you switch the account to <strong>Live</strong>.</p>
 </div>
 {% endif %}
@@ -69,11 +70,21 @@
 {% endif %}
 
 <h2>Connect an account</h2>
+{% set groups = [
+  ("easy", "Quick and free"),
+  ("medium", "Needs a free developer app (about 10 minutes)"),
+  ("advanced", "Advanced: needs a developer account"),
+] %}
+{% for ease, title in groups %}
+<p class="small muted" style="margin:16px 0 6px">{{ title }}</p>
 <div class="grid">
-  {% for key, p in providers.items() %}
-  <a class="btn" href="{{ url_for('new_account', platform=key) }}">+ {{ p.name }}</a>
+  {% for key, p in providers.items() if p.ease == ease %}
+  <a class="btn provider" href="{{ url_for('new_account', platform=key) }}">
+    <strong>+ {{ p.name }}</strong><span class="small muted">{{ p.ease_note }}</span>
+  </a>
   {% endfor %}
 </div>
+{% endfor %}
 
 <h2>Not supported</h2>
 <div class="card small">

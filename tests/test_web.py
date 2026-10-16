@@ -1,6 +1,8 @@
 import re
+from urllib.parse import parse_qs, urlparse
 
 import pytest
+import responses
 
 from autodelete.store import Store
 from autodelete.web import create_app
@@ -88,3 +90,46 @@ def test_schedule_settings(client):
     client.post("/settings", data={"csrf": token, "interval_hours": "6"})
     assert client.store.setting("interval_hours") == "6"
     assert client.store.setting("schedule_enabled") == "0"
+
+
+@responses.activate
+def test_mastodon_login_flow(client):
+    base = "https://m.example"
+    responses.post(f"{base}/api/v1/apps", json={"client_id": "cid", "client_secret": "csec"})
+    responses.post(f"{base}/oauth/token", json={"access_token": "user-token"})
+    responses.get(f"{base}/api/v1/accounts/verify_credentials", json={"id": "1", "username": "alex"})
+
+    token = csrf(client, "/accounts/new/mastodon")
+    resp = client.post("/connect/mastodon", data={"csrf": token, "instance": "@alex@m.example"})
+    location = resp.headers["Location"]
+    assert location.startswith(f"{base}/oauth/authorize?")
+    state = parse_qs(urlparse(location).query)["state"][0]
+
+    # A callback with the wrong state is rejected and saves nothing.
+    with client.session_transaction() as s:
+        saved = dict(s["mastodon_oauth"])
+    client.get("/connect/mastodon/callback?code=abc&state=forged")
+    assert client.store.accounts() == []
+
+    with client.session_transaction() as s:
+        s["mastodon_oauth"] = saved
+    resp = client.get(f"/connect/mastodon/callback?code=abc&state={state}")
+    assert "/edit" in resp.headers["Location"]
+    acc = client.store.accounts()[0]
+    assert acc["label"] == "@alex@m.example"
+    assert acc["credentials"] == {"instance": base, "access_token": "user-token"}
+    assert acc["live"] is False
+
+
+def test_mastodon_login_unreachable_server(client):
+    token = csrf(client, "/accounts/new/mastodon")
+    with responses.RequestsMock() as mock:
+        mock.post("https://nope.example/api/v1/apps", status=404)
+        resp = client.post("/connect/mastodon", data={"csrf": token, "instance": "nope.example"})
+    assert resp.headers["Location"].endswith("/accounts/new/mastodon")
+
+
+def test_healthz_is_public(monkeypatch):
+    monkeypatch.setenv("AUTODELETE_PASSWORD", "pw")
+    app = create_app(Store(":memory:"), start_scheduler=False)
+    assert app.test_client().get("/healthz").get_data(as_text=True) == "auto-delete-posts ok"

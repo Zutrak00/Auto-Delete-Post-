@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,7 +41,22 @@ DEFAULT_SETTINGS = {"schedule_enabled": "1", "interval_hours": "24"}
 
 
 def default_db_path() -> Path:
-    return Path(os.environ.get("AUTODELETE_DB", Path.cwd() / "data" / "autodelete.db"))
+    if os.environ.get("AUTODELETE_DB"):
+        return Path(os.environ["AUTODELETE_DB"])
+    if getattr(sys, "frozen", False):
+        # Packaged app: the working directory may be read-only (e.g. "/" when double-clicked on macOS),
+        # so keep data in the usual per-user location.
+        return user_data_dir() / "autodelete.db"
+    return Path.cwd() / "data" / "autodelete.db"
+
+
+def user_data_dir() -> Path:
+    home = Path.home()
+    if sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "AutoDeletePosts"
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / "AutoDeletePosts"
+    return Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / "autodeleteposts"
 
 
 def now_iso() -> str:

@@ -11,6 +11,8 @@ OVERWRITE_TEXT = "[deleted]"
 class RedditProvider(Provider):
     key = "reddit"
     name = "Reddit"
+    ease = "medium"
+    ease_note = "About 10 minutes: needs a free Reddit app."
     fields = [
         Field("client_id", "App client ID", help="The string under 'personal use script'"),
         Field("client_secret", "App secret", secret=True),

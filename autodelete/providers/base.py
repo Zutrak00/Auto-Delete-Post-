@@ -37,6 +37,9 @@ class Provider:
     name: str = ""
     fields: list[Field] = []
     setup_help: str = ""
+    # How hard it is to connect: "easy", "medium" or "advanced", with a one-line explanation.
+    ease: str = "medium"
+    ease_note: str = ""
     # Seconds to wait between deletes so we stay under rate limits.
     delete_delay: float = 1.0
 

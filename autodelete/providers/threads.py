@@ -11,6 +11,8 @@ FIELDS = "id,text,timestamp,permalink,media_type,is_quote_post"
 class ThreadsProvider(Provider):
     key = "threads"
     name = "Threads"
+    ease = "advanced"
+    ease_note = "Needs a Meta developer app with delete permission."
     fields = [
         Field("access_token", "Long-lived access token", secret=True),
     ]

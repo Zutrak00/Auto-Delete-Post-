@@ -12,6 +12,8 @@ FIELDS = "id,message,story,created_time,permalink_url,reactions.summary(total_co
 class FacebookPageProvider(Provider):
     key = "facebook_page"
     name = "Facebook Page"
+    ease = "advanced"
+    ease_note = "Needs a Meta developer app. Pages only."
     fields = [
         Field("page_token", "Page access token", secret=True),
     ]

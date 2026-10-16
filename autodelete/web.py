@@ -4,15 +4,19 @@ import hmac
 import os
 import secrets
 import threading
-from functools import wraps
+
+import requests
 
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
 from .engine import run_account
-from .providers import PROVIDERS, UNSUPPORTED
+from .providers import PROVIDERS, UNSUPPORTED, mastodon
 from .rules import Rules
 from .scheduler import Scheduler, next_run
 from .store import Store
+
+
+HEALTH_TEXT = "auto-delete-posts ok"
 
 
 def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flask:
@@ -46,8 +50,12 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
             expected = session.get("csrf", "")
             if not expected or not hmac.compare_digest(sent, expected):
                 abort(400, "Form expired, go back and try again.")
-        if password and not session.get("authed") and request.endpoint not in ("login", "static"):
+        if password and not session.get("authed") and request.endpoint not in ("login", "static", "healthz"):
             return redirect(url_for("login"))
+
+    @app.get("/healthz")
+    def healthz():
+        return HEALTH_TEXT
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -95,6 +103,44 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
             return redirect(url_for("preview", account_id=account_id))
         return render_template("account_form.html", provider=provider, account=None, rules=Rules())
 
+    @app.post("/connect/mastodon")
+    def mastodon_start():
+        try:
+            instance = mastodon.normalise_instance(request.form.get("instance", ""))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("new_account", platform="mastodon"))
+        redirect_uri = url_for("mastodon_callback", _external=True)
+        try:
+            client = mastodon.register_app(requests.Session(), instance, redirect_uri)
+        except (requests.RequestException, ValueError, KeyError):
+            flash(f"Couldn't reach a Mastodon server at {instance}. Check the address and try again.", "error")
+            return redirect(url_for("new_account", platform="mastodon"))
+        state = secrets.token_urlsafe(16)
+        session["mastodon_oauth"] = {"instance": instance, "client_id": client["client_id"],
+                                     "client_secret": client["client_secret"],
+                                     "redirect_uri": redirect_uri, "state": state}
+        return redirect(mastodon.authorize_url(instance, client["client_id"], redirect_uri, state))
+
+    @app.get("/connect/mastodon/callback")
+    def mastodon_callback():
+        pending = session.pop("mastodon_oauth", None)
+        code = request.args.get("code")
+        if not pending or not code or not hmac.compare_digest(request.args.get("state", ""), pending["state"]):
+            flash("Mastodon login was cancelled or expired. Please try again.", "error")
+            return redirect(url_for("new_account", platform="mastodon"))
+        try:
+            token, handle = mastodon.exchange_code(
+                requests.Session(), pending["instance"], pending["client_id"], pending["client_secret"],
+                pending["redirect_uri"], code)
+        except (requests.RequestException, ValueError, KeyError):
+            flash("Mastodon didn't accept the login. Please try again.", "error")
+            return redirect(url_for("new_account", platform="mastodon"))
+        account_id = store.add_account("mastodon", handle, {"instance": pending["instance"], "access_token": token},
+                                       Rules().to_dict(), live=False, enabled=True)
+        flash(f"Connected {handle}. Check the rules below, then save to preview what would be deleted.", "ok")
+        return redirect(url_for("edit_account", account_id=account_id, next="preview"))
+
     @app.route("/accounts/<int:account_id>/edit", methods=["GET", "POST"])
     def edit_account(account_id):
         account = store.account(account_id) or abort(404)
@@ -108,6 +154,8 @@ def create_app(store: Store | None = None, start_scheduler: bool = True) -> Flas
                 enabled="enabled" in request.form,
             )
             flash("Saved.", "ok")
+            if request.args.get("next") == "preview":
+                return redirect(url_for("preview", account_id=account_id))
             return redirect(url_for("index"))
         return render_template("account_form.html", provider=provider, account=account,
                                rules=Rules.from_dict(account["rules"]))

@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>{% if account %}Edit {{ account.label }}{% else %}Connect {{ provider.name }}{% endif %}</h1>
+{% if provider.key == 'mastodon' and not account %}
+<form method="post" action="{{ url_for('mastodon_start') }}" class="card">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <h2 style="margin-top:0">Log in with Mastodon</h2>
+  <label for="instance">Your Mastodon server</label>
+  <input type="text" id="instance" name="instance" placeholder="mastodon.social" required>
+  <div class="help">The part after the second @ in your handle. For @alex@mastodon.social, enter mastodon.social.</div>
+  <p><button class="btn primary" type="submit">Log in with Mastodon</button></p>
+  <p class="small muted" style="margin-bottom:0">You'll be sent to your server to approve access, then brought back here.</p>
+</form>
+<details>
+  <summary class="small muted" style="margin-bottom:14px;cursor:pointer">Advanced: paste an access token instead</summary>
+{% endif %}
 <form method="post">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
 
@@ -22,7 +35,7 @@
       {% endif %}
       {% if f.help %}<div class="help">{{ f.help }}</div>{% endif %}
     {% endfor %}
-    <p class="small muted">Credentials are stored only on this computer, in <code>data/autodelete.db</code>.</p>
+    <p class="small muted">Credentials are stored only on this computer.</p>
   </div>
 
   <div class="card">
@@ -61,4 +74,5 @@
     <a class="btn" href="{{ url_for('index') }}">Cancel</a>
   </div>
 </form>
+{% if provider.key == 'mastodon' and not account %}</details>{% endif %}
 {% endblock %}

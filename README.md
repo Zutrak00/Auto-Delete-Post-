@@ -1,8 +1,34 @@
-# Auto-Delete-Post
+# Auto-Delete Posts
 
-A small app you run on your own computer. It automatically deletes your old posts from your social media accounts.
-You set the rules, for example "delete everything older than 30 days, but keep my pinned post, anything with 100+
-likes, and anything tagged `#keep`". The app then cleans up on a schedule.
+Automatically deletes your old social media posts. You set the rules, for example "delete everything older
+than 30 days, but keep my pinned post, anything with 100+ likes, and anything tagged `#keep`". The app then
+cleans up on a schedule. It runs on your own computer, and your logins never leave it.
+
+## Download (no install needed)
+
+**[⬇ Get the latest version](https://github.com/Zutrak00/Auto-Delete-Post-/releases/latest)**. Pick the file for
+your computer:
+
+| Your computer | File |
+|---|---|
+| Windows | `AutoDeletePosts-Windows.zip` |
+| Mac (Apple Silicon: M1 or newer) | `AutoDeletePosts-Mac.zip` |
+| Linux | `AutoDeletePosts-Linux.tar.gz` |
+
+1. Unzip it and double-click **AutoDeletePosts**.
+2. A small window opens and the dashboard appears in your browser. Keep that window open while you use the app;
+   closing it stops the app. Double-clicking again later just reopens the dashboard.
+3. The app isn't signed by Apple or Microsoft, so the first launch shows a warning:
+   * **Windows:** "Windows protected your PC" → **More info** → **Run anyway**.
+   * **Mac:** after the warning, open **System Settings → Privacy & Security**, scroll down and click
+     **Open Anyway**.
+4. Connect an account. **Bluesky** and **Mastodon** take a minute or two. Mastodon is a single "Log in" button.
+5. Click **Run preview** to see exactly what would be deleted. Nothing is deleted until you click **Go Live**.
+
+Your settings are saved in `%APPDATA%\AutoDeletePosts` on Windows, `~/Library/Application Support/AutoDeletePosts`
+on Mac and `~/.local/share/autodeleteposts` on Linux.
+
+## Supported networks
 
 | Network | What gets deleted | Notes |
 |---|---|---|
@@ -23,10 +49,12 @@ posts, so no app can do this automatically for them. The dashboard shows the man
   the others is kept. Nothing is deleted until you press **Go Live** for that account.
 * **There is a per-run cap** (default 100) so a rule typo can't wipe everything at once.
 * **Deletion is permanent.** Download your archive from each network first if you might want your posts later.
-* Your login tokens are stored only on your computer, in `data/autodelete.db`. Keep that file private.
-  It is git-ignored and its permissions are set to owner-only.
+* Your login tokens are stored only on your computer (see the folders above, or `data/autodelete.db` when
+  running from source). Keep that file private. Its permissions are set to owner-only.
 
-## Quick start (easiest)
+## Run from source (if you have Python)
+
+If the download above doesn't suit you (for example on an Intel Mac):
 
 1. Install **Python 3.10 or newer** from https://www.python.org/downloads/. On Windows, tick
    *"Add python.exe to PATH"* during the install.
@@ -106,7 +134,8 @@ On Windows, use Task Scheduler to run `.venv\Scripts\python.exe -m autodelete ru
 The dashboard shows these steps next to each form.
 
 * **Bluesky:** Settings → Privacy and security → App passwords → Add. Use that, never your real password.
-* **Mastodon:** Preferences → Development → New application. Tick `read:accounts`, `read:statuses` and
+* **Mastodon:** type your server (e.g. `mastodon.social`) and click **Log in with Mastodon**. To paste a token
+  instead: Preferences → Development → New application, tick `read:accounts`, `read:statuses` and
   `write:statuses`, then copy *Your access token*.
 * **Reddit:** https://www.reddit.com/prefs/apps → *create another app* → type **script**, redirect URI
   `http://localhost:8080`. Copy the client ID and secret. Scheduled runs work best on an account without 2FA.
@@ -132,6 +161,15 @@ The dashboard shows these steps next to each form.
 | Keep posts containing… | Comma-separated words or hashtags, case-insensitive. Default `#keep`. |
 | Never delete these IDs | Exact post IDs, copied from the preview table. |
 | Maximum deletions per run | Safety cap. Leftover posts are handled on the next run. |
+
+## Publishing a new version (maintainer)
+
+Push a tag such as `v1.0.1`. GitHub Actions tests the code, builds the Windows, Mac and Linux apps and attaches
+them to a new release:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
 
 ## Development
 

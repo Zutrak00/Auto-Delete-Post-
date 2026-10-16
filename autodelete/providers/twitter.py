@@ -11,6 +11,8 @@ from .base import Field, Provider
 class XProvider(Provider):
     key = "x"
     name = "X (Twitter)"
+    ease = "advanced"
+    ease_note = "Needs a paid X developer plan."
     fields = [
         Field("api_key", "API key (consumer key)"),
         Field("api_secret", "API key secret", secret=True),
