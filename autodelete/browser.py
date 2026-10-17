@@ -67,11 +67,11 @@ def open_browser(profile: Path, headless: bool = True, start_url: str | None = N
 # Safari and the regular Firefox can't be automated this way.
 _MAC_APPS = ["Brave Browser", "Vivaldi", "Chromium", "Opera", "Google Chrome Beta", "Google Chrome Canary"]
 _WINDOWS_EXES = [  # relative to Program Files, Program Files (x86) or %LOCALAPPDATA%
-    r"BraveSoftware\Brave-Browser\Application\brave.exe",
-    r"Vivaldi\Application\vivaldi.exe",
-    r"Chromium\Application\chrome.exe",
-    r"Programs\Opera\opera.exe",
-    r"Opera\opera.exe",
+    "BraveSoftware/Brave-Browser/Application/brave.exe",
+    "Vivaldi/Application/vivaldi.exe",
+    "Chromium/Application/chrome.exe",
+    "Programs/Opera/opera.exe",
+    "Opera/opera.exe",
 ]
 _LINUX_COMMANDS = ["brave-browser", "brave", "vivaldi-stable", "vivaldi", "chromium", "chromium-browser", "opera"]
 
