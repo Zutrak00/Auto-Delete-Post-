@@ -112,7 +112,13 @@ def _launch(pw, profile: Path, headless: bool, error_cls):
     except error_cls:
         log.info("Downloading Chromium (one time, about 150 MB)...")
         install_chromium()
-        return pw.chromium.launch_persistent_context(str(profile), **options)
+        try:
+            return pw.chromium.launch_persistent_context(str(profile), **options)
+        except error_cls as exc:
+            # Playwright's own message tells users to run "playwright install", which they can't do.
+            log.warning("Downloaded Chromium didn't start: %s", exc)
+            raise ProviderError("The downloaded browser didn't start. Install Google Chrome or Brave and "
+                                "try again.") from exc
 
 
 def _use_persistent_browser_folder() -> None:
