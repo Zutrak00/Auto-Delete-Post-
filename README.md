@@ -6,25 +6,38 @@ cleans up on a schedule. It runs on your own computer, and your logins never lea
 
 ## Download (no install needed)
 
-**[⬇ Get the latest version](https://github.com/Zutrak00/Auto-Delete-Post-/releases/latest)**. Pick the file for
-your computer:
+### Mac (Apple Silicon: M1 or newer)
 
-| Your computer | File |
-|---|---|
-| Windows | `AutoDeletePosts-Windows.zip` |
-| Mac (Apple Silicon: M1 or newer) | `AutoDeletePosts-Mac.zip` |
-| Linux | `AutoDeletePosts-Linux.tar.gz` |
+Open **Terminal** (press ⌘ Space, type *Terminal*, press Enter), paste this line and press Enter:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Zutrak00/Auto-Delete-Post-/main/install-mac.sh | bash
+```
+
+It installs the app, starts it, and puts an **Auto-Delete Posts** launcher on your Desktop for next time.
+
+*Why Terminal?* macOS blocks apps downloaded in a web browser unless the developer pays Apple $99 a year to have
+them checked. It shows "Apple could not verify … is free of malware" and offers to move the app to the Trash.
+The app isn't harmful; Apple just hasn't checked it. Installing with the command above avoids that block.
+Already downloaded the Mac zip in a browser? Open its folder, type `bash ` (with a space) in Terminal, drag
+`install-mac.sh` from the folder into the Terminal window, and press Enter.
+
+### Windows and Linux
+
+**[⬇ Get the latest version](https://github.com/Zutrak00/Auto-Delete-Post-/releases/latest)** and pick
+`AutoDeletePosts-Windows.zip` or `AutoDeletePosts-Linux.tar.gz`.
 
 1. Unzip it and double-click **AutoDeletePosts**.
 2. A small window opens and the dashboard appears in your browser. Keep that window open while you use the app;
    closing it stops the app. Double-clicking again later just reopens the dashboard.
-3. The app isn't signed by Apple or Microsoft, so the first launch shows a warning:
-   * **Windows:** "Windows protected your PC" → **More info** → **Run anyway**.
-   * **Mac:** after the warning, open **System Settings → Privacy & Security**, scroll down and click
-     **Open Anyway**.
-4. Connect an account. For **X** and **Instagram**, type your username, click **Open login window** and log in
+3. **Windows** shows "Windows protected your PC" the first time, because the app isn't signed. Click
+   **More info** → **Run anyway**.
+
+### Then, on any computer
+
+1. Connect an account. For **X** and **Instagram**, type your username, click **Open login window** and log in
    as usual. The app remembers the login.
-5. Click **Run preview** to see exactly what would be deleted. Nothing is deleted until you click **Go Live**.
+2. Click **Run preview** to see exactly what would be deleted. Nothing is deleted until you click **Go Live**.
 
 X and Instagram need **Google Chrome or Microsoft Edge** on the computer. Windows always has Edge. If neither is
 found, the app downloads a browser once (about 150 MB).
