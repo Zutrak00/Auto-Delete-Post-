@@ -87,9 +87,11 @@ class XBrowserProvider(Provider):
                     seen.setdefault(p.id, p)
             return len(seen) - before
 
-        self.page.goto(f"{BASE}/{self.username}/with_replies", wait_until="domcontentloaded")
-        self.page.wait_for_timeout(3000)
-        scroll_until_done(self.page, collect)
+        # X's profile splits Posts and Replies into separate tabs, so read both.
+        for tab in ("", "/with_replies"):
+            self.page.goto(f"{BASE}/{self.username}{tab}", wait_until="domcontentloaded")
+            self.page.wait_for_timeout(3000)
+            scroll_until_done(self.page, collect)
         for post in seen.values():
             post.pinned = post.id in pinned
             yield post

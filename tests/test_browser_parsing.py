@@ -170,3 +170,41 @@ def test_packaged_app_keeps_downloaded_chromium(tmp_path, monkeypatch):
     monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
     browser._use_persistent_browser_folder()
     assert browser.os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path / "Library" / "Caches" / "ms-playwright")
+
+
+class FakeXPage:
+    """Serves one timeline response per profile tab, the way X's web app loads them."""
+
+    def __init__(self, timelines):
+        self.timelines = timelines
+        self.handlers = []
+        self.mouse = self
+
+    def on(self, event, handler):
+        self.handlers.append(handler)
+
+    def goto(self, url, **kwargs):
+        payload = self.timelines.get(url.split("x.com")[-1])
+        response = type("R", (), {"url": "https://x.com/i/api/graphql/abc/UserTweets",
+                                  "headers": {"content-type": "application/json"},
+                                  "json": lambda self: payload})()
+        for handler in self.handlers:
+            handler(response)
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def wheel(self, dx, dy):
+        pass
+
+
+def test_x_reads_both_posts_and_replies_tabs(tmp_path):
+    from autodelete.providers.x_browser import XBrowserProvider
+
+    p = XBrowserProvider({"username": "me"}, profile=tmp_path)
+    p.user_id = ME
+    p.page = FakeXPage({
+        "/me": {"data": [tweet("10", "holy hell")]},
+        "/me/with_replies": {"data": [tweet("11", "@other reply", in_reply_to_status_id_str="900")]},
+    })
+    assert sorted(post.id for post in p.iter_posts()) == ["10", "11"]
