@@ -51,7 +51,7 @@ jobs:
           cd dist
           case "${{ matrix.os }}" in
             windows-*) 7z a "../${{ matrix.asset }}" AutoDeletePosts.exe README.md ;;
-            macos-*)   zip -9 "../${{ matrix.asset }}" AutoDeletePosts README.md ;;
+            macos-*)   cp ../install-mac.sh . && zip -9 "../${{ matrix.asset }}" AutoDeletePosts README.md install-mac.sh ;;
             *)         tar czf "../${{ matrix.asset }}" AutoDeletePosts README.md ;;
           esac
       - uses: actions/upload-artifact@v4
@@ -77,21 +77,27 @@ jobs:
             AutoDeletePosts-Mac.zip
             AutoDeletePosts-Linux.tar.gz
           body: |
-            ## Download
+            ## Mac (Apple Silicon: M1 or newer)
 
-            | Your computer | File |
-            |---|---|
-            | Windows | **AutoDeletePosts-Windows.zip** |
-            | Mac (Apple Silicon: M1 or newer) | **AutoDeletePosts-Mac.zip** |
-            | Linux | **AutoDeletePosts-Linux.tar.gz** |
+            Open **Terminal**, paste this line and press Enter:
 
-            Unzip it and double-click **AutoDeletePosts**. A small window opens and the dashboard appears in
-            your browser. Keep the window open while you use it.
+            ```
+            curl -fsSL https://raw.githubusercontent.com/Zutrak00/Auto-Delete-Post-/main/install-mac.sh | bash
+            ```
 
-            **First launch warnings.** The app isn't signed by Apple or Microsoft, so your computer will ask once:
-            - **Windows:** "Windows protected your PC" → click **More info** → **Run anyway**.
-            - **Mac:** after the warning, open **System Settings → Privacy & Security**, scroll down and click
-              **Open Anyway** next to AutoDeletePosts.
+            It installs and starts the app, and puts an **Auto-Delete Posts** launcher on your Desktop. Please don't
+            double-click the app from the Mac zip below: macOS blocks apps downloaded in a browser unless the developer
+            pays Apple to check them, and offers to move them to the Trash. If you already downloaded the zip, open
+            its folder, type `bash ` in Terminal, drag `install-mac.sh` into the window and press Enter.
+
+            ## Windows and Linux
+
+            Download **AutoDeletePosts-Windows.zip** or **AutoDeletePosts-Linux.tar.gz**, unzip it and double-click
+            **AutoDeletePosts**. A small window opens and the dashboard appears in your browser. Keep the window open
+            while you use it. On Windows, the first launch says "Windows protected your PC": click **More info** →
+            **Run anyway**.
+
+            ## Then
 
             For **X** and **Instagram**, click **Open login window** and log in as usual. It's free, and needs Google
             Chrome or Microsoft Edge (Windows always has Edge).
