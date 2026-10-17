@@ -1,8 +1,8 @@
 # Auto-Delete Posts
 
-Automatically deletes your old social media posts, **for free**. You set the rules, for example "delete everything older
-than 30 days, but keep my pinned post, anything with 100+ likes, and anything tagged `#keep`". The app then
-cleans up on a schedule. It runs on your own computer, and your logins never leave it.
+Automatically erases your social media posts, **for free**: posts, replies and reposts. By default it deletes
+everything; rules let you keep some, for example "only delete posts older than 30 days, and keep my pinned post,
+anything with 100+ likes, and anything tagged `#keep`". The app then cleans up on a schedule. It runs on your own computer, and your logins never leave it.
 
 ## Download (no install needed)
 
@@ -181,9 +181,9 @@ The dashboard shows these steps next to each form.
 
 | Rule | Meaning |
 |---|---|
-| Delete posts older than N days | Only posts at least this old are candidates. `0` means everything. |
+| Delete posts older than N days | Only posts at least this old are candidates. `0` (the default) means everything. |
 | Include replies / reposts | Untick to leave replies or reposts alone. |
-| Keep pinned post | Never delete the post pinned to your profile. |
+| Keep pinned post | Never delete the post pinned to your profile. Off by default. |
 | Keep posts with at least N likes | Spares your popular posts. Threads doesn't report likes, so this has no effect there. |
 | Keep posts containing… | Comma-separated words or hashtags, case-insensitive. Default `#keep`. |
 | Never delete these IDs | Exact post IDs, copied from the preview table. |

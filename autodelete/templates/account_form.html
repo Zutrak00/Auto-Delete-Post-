@@ -42,7 +42,7 @@
   <div class="card">
     <h2 style="margin-top:0">2. What to delete</h2>
     <label for="older_than_days">Delete posts older than (days)</label>
-    <input type="number" id="older_than_days" name="older_than_days" min="0" step="any" value="{{ rules.older_than_days }}">
+    <input type="number" id="older_than_days" name="older_than_days" min="0" step="any" value="{{ '%g' % rules.older_than_days }}">
     <div class="help">0 deletes everything, including today's posts.</div>
 
     <label class="check"><input type="checkbox" name="include_replies" {% if rules.include_replies %}checked{% endif %}> Include replies / comments</label>

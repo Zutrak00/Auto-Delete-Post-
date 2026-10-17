@@ -10,10 +10,10 @@ from .models import Post
 class Rules:
     """Decides which posts get deleted. Anything that matches a 'keep' rule is spared."""
 
-    older_than_days: float = 30
+    older_than_days: float = 0  # the app's purpose is erasing everything; rules opt posts back in
     keep_if_likes_at_least: int | None = None  # spare popular posts
     keep_keywords: list[str] = field(default_factory=lambda: ["#keep"])
-    keep_pinned: bool = True
+    keep_pinned: bool = False
     keep_ids: list[str] = field(default_factory=list)
     include_replies: bool = True
     include_reposts: bool = True
