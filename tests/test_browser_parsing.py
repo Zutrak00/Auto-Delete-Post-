@@ -170,3 +170,66 @@ def test_packaged_app_keeps_downloaded_chromium(tmp_path, monkeypatch):
     monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
     browser._use_persistent_browser_folder()
     assert browser.os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path / "Library" / "Caches" / "ms-playwright")
+
+
+class FakeXPage:
+    """Serves one timeline response per profile tab, the way X's web app loads them."""
+
+    def __init__(self, timelines, tabs=()):
+        self.timelines = timelines
+        self.tabs = list(tabs)
+        self.handlers = []
+        self.visited = []
+        self.mouse = self
+
+    def on(self, event, handler):
+        self.handlers.append(handler)
+
+    def goto(self, url, **kwargs):
+        path = url.split("x.com")[-1]
+        self.visited.append(path)
+        payload = self.timelines.get(path)
+        response = type("R", (), {"url": "https://x.com/i/api/graphql/abc/UserTweets",
+                                  "headers": {"content-type": "application/json"},
+                                  "json": lambda self: payload})()
+        for handler in self.handlers:
+            handler(response)
+
+    def locator(self, selector):
+        return type("L", (), {"evaluate_all": lambda _, script: self.tabs})()
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def wheel(self, dx, dy):
+        pass
+
+
+def x_provider(tmp_path, page):
+    from autodelete.providers.x_browser import XBrowserProvider
+
+    p = XBrowserProvider({"username": "me"}, profile=tmp_path)
+    p.user_id = ME
+    p.page = page
+    return p
+
+
+def test_x_reads_every_profile_tab_except_likes(tmp_path):
+    page = FakeXPage({
+        "/me": {"data": [tweet("10", "holy hell")]},
+        "/me/with_replies": {"data": [tweet("11", "@other reply", in_reply_to_status_id_str="900")]},
+        "/me/reposts": {"data": [tweet("12", "RT @other: theirs",
+                                       retweeted_status_result={"result": tweet("901", "theirs", user="55")})]},
+        "/me/media": {"data": [tweet("13", "a photo")]},
+        "/me/likes": {"data": [tweet("14", "liked my own post")]},
+    }, tabs=["/me", "/me/with_replies", "/me/reposts", "/me/media", "/me/likes", "/other"])
+    posts = {post.id: post.kind for post in x_provider(tmp_path, page).iter_posts()}
+    assert posts == {"10": "post", "11": "reply", "12": "repost", "13": "post"}
+    assert "/me/likes" not in page.visited
+
+
+def test_x_falls_back_to_known_tabs_when_tab_bar_not_found(tmp_path):
+    page = FakeXPage({"/me": {"data": [tweet("10", "post")]},
+                      "/me/with_replies": {"data": [tweet("11", "reply", in_reply_to_status_id_str="900")]}})
+    assert sorted(p.id for p in x_provider(tmp_path, page).iter_posts()) == ["10", "11"]
+    assert page.visited == ["/me", "/me/with_replies", "/me/media"]

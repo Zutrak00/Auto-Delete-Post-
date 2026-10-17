@@ -48,7 +48,8 @@ def test_parse_time_formats():
 
 
 def test_rules_keep_reasons():
-    rules = Rules(older_than_days=30, keep_if_likes_at_least=10, keep_keywords=["#keep"], keep_ids=["x"])
+    rules = Rules(older_than_days=30, keep_if_likes_at_least=10, keep_keywords=["#keep"], keep_ids=["x"],
+                  keep_pinned=True)
     assert rules.reason_to_keep(post("a", 5), NOW).startswith("newer than")
     assert rules.reason_to_keep(post("b", 40, likes=12), NOW) == "12 likes"
     assert rules.reason_to_keep(post("c", 40, text="Nice #KEEP"), NOW) == "contains '#keep'"
@@ -60,6 +61,13 @@ def test_rules_keep_reasons():
     assert no_replies.reason_to_keep(post("r", 1, kind="reply"), NOW) == "replies excluded"
     assert no_replies.reason_to_keep(post("s", 1, kind="repost"), NOW) == "reposts excluded"
     assert no_replies.reason_to_keep(post("t", 1, kind="comment"), NOW) is None
+
+
+def test_default_rules_erase_everything():
+    rules = Rules()
+    for p in (post("new", 0), post("old", 400), post("pin", 1, pinned=True), post("r", 0, kind="reply"),
+              post("rt", 0, kind="repost")):
+        assert rules.reason_to_keep(p, NOW) is None, p.id
 
 
 def test_rules_from_dict_ignores_unknown_keys():

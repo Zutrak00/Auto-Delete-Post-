@@ -297,7 +297,7 @@ def _rules_from_form() -> Rules:
 
     likes = form.get("keep_if_likes_at_least", "").strip()
     return Rules(
-        older_than_days=max(number("older_than_days", 30), 0),
+        older_than_days=max(number("older_than_days", 0), 0),
         keep_if_likes_at_least=int(likes) if likes.isdigit() else None,
         keep_keywords=[w.strip() for w in form.get("keep_keywords", "").split(",") if w.strip()],
         keep_pinned="keep_pinned" in form,

@@ -87,9 +87,17 @@ class XBrowserProvider(Provider):
                     seen.setdefault(p.id, p)
             return len(seen) - before
 
-        self.page.goto(f"{BASE}/{self.username}/with_replies", wait_until="domcontentloaded")
-        self.page.wait_for_timeout(3000)
+        # X's profile splits posts, replies, reposts and media into tabs: read every tab the profile shows.
+        def open_tab(path: str) -> None:
+            self.page.goto(BASE + path, wait_until="domcontentloaded")
+            self.page.wait_for_timeout(3000)
+
+        open_tab(f"/{self.username}")
+        tabs = self._profile_tabs()  # before scrolling, while the tab bar is on screen
         scroll_until_done(self.page, collect)
+        for tab in tabs:
+            open_tab(tab)
+            scroll_until_done(self.page, collect)
         for post in seen.values():
             post.pinned = post.id in pinned
             yield post
@@ -97,6 +105,19 @@ class XBrowserProvider(Provider):
         for item in self.archive:
             if item["id"] not in seen:
                 yield archive_item_to_post(item, self.username, pinned)
+
+    def _profile_tabs(self) -> list[str]:
+        """Paths of the profile's other tabs (Replies, Reposts, Media...), read from the page, minus Likes."""
+        from playwright.sync_api import Error as PlaywrightError
+
+        prefix = f"/{self.username}/".lower()
+        try:
+            hrefs = self.page.locator('nav a[role="tab"]').evaluate_all("els => els.map(e => e.getAttribute('href'))")
+        except PlaywrightError:
+            hrefs = []
+        tabs = [h for h in dict.fromkeys(hrefs) if h and h.lower().startswith(prefix)
+                and not h.lower().endswith("/likes")]
+        return tabs or [f"/{self.username}/with_replies", f"/{self.username}/media"]
 
     # --- deleting --------------------------------------------------------------------------
     def delete(self, post: Post) -> None:
