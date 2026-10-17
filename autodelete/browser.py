@@ -1,14 +1,15 @@
 """Drives a real browser for networks with no free API (X, Instagram).
 
 The user logs in once in a visible window; the browser profile (cookies) is kept in the app's data folder so later
-runs work in the background. We prefer the Chrome or Edge already installed on the computer and only download
-Chromium if neither is available.
+runs work in the background. We prefer a Chromium-based browser already installed on the computer (Chrome, Edge,
+Brave, Vivaldi, Opera, Chromium) and only download Chromium if none is available.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -44,6 +45,7 @@ def open_browser(profile: Path, headless: bool = True, start_url: str | None = N
         raise ProviderError("This account's browser is busy (a login window or another run is open). Try again shortly.")
     try:
         profile.mkdir(parents=True, exist_ok=True)
+        _use_persistent_browser_folder()  # must be set before Playwright's driver starts
         with sync_playwright() as pw:
             context = _launch(pw, profile, headless, PlaywrightError)
             try:
@@ -61,25 +63,71 @@ def open_browser(profile: Path, headless: bool = True, start_url: str | None = N
         lock.release()
 
 
+# Chromium-based browsers Playwright can drive, besides Chrome and Edge (found through Playwright's channels).
+# Safari and the regular Firefox can't be automated this way.
+_MAC_APPS = ["Brave Browser", "Vivaldi", "Chromium", "Opera", "Google Chrome Beta", "Google Chrome Canary"]
+_WINDOWS_EXES = [  # relative to Program Files, Program Files (x86) or %LOCALAPPDATA%
+    r"BraveSoftware\Brave-Browser\Application\brave.exe",
+    r"Vivaldi\Application\vivaldi.exe",
+    r"Chromium\Application\chrome.exe",
+    r"Programs\Opera\opera.exe",
+    r"Opera\opera.exe",
+]
+_LINUX_COMMANDS = ["brave-browser", "brave", "vivaldi-stable", "vivaldi", "chromium", "chromium-browser", "opera"]
+
+
+def other_browsers() -> list[str]:
+    """Paths of installed Chromium-based browsers other than Chrome and Edge."""
+    if sys.platform == "darwin":
+        found = []
+        for name in _MAC_APPS:
+            for apps in (Path("/Applications"), Path.home() / "Applications"):
+                exe = apps / f"{name}.app" / "Contents" / "MacOS" / name
+                if exe.is_file():
+                    found.append(str(exe))
+                    break
+        return found
+    if sys.platform == "win32":
+        roots = [os.environ.get(v) for v in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
+        return [str(Path(root) / rel) for rel in _WINDOWS_EXES for root in roots
+                if root and (Path(root) / rel).is_file()]
+    return [path for path in (shutil.which(cmd) for cmd in _LINUX_COMMANDS) if path]
+
+
 def _launch(pw, profile: Path, headless: bool, error_cls):
     options = dict(headless=headless, args=LAUNCH_ARGS, locale="en-US", viewport={"width": 1200, "height": 900})
     custom = os.environ.get("AUTODELETE_BROWSER_PATH")
     if custom:
         return pw.chromium.launch_persistent_context(str(profile), executable_path=custom, **options)
     channels = ["msedge", "chrome"] if sys.platform == "win32" else ["chrome", "msedge"]
-    errors = []
-    for channel in channels:
+    attempts = [dict(channel=c) for c in channels] + [dict(executable_path=p) for p in other_browsers()]
+    for attempt in attempts:
         try:
-            return pw.chromium.launch_persistent_context(str(profile), channel=channel, **options)
+            return pw.chromium.launch_persistent_context(str(profile), **attempt, **options)
         except error_cls as exc:
-            errors.append(f"{channel}: {str(exc).splitlines()[0]}")
-    # Neither Chrome nor Edge is installed: use Playwright's own Chromium, downloading it once if needed.
+            log.debug("Browser %s didn't start: %s", attempt, str(exc).splitlines()[0] if str(exc) else exc)
+    # No usable browser installed: use Playwright's own Chromium, downloading it once if needed.
     try:
         return pw.chromium.launch_persistent_context(str(profile), **options)
     except error_cls:
         log.info("Downloading Chromium (one time, about 150 MB)...")
         install_chromium()
         return pw.chromium.launch_persistent_context(str(profile), **options)
+
+
+def _use_persistent_browser_folder() -> None:
+    """In the packaged app Playwright looks for its Chromium inside the app's temporary unpack folder, which is
+    deleted on exit, while `install` puts it in the user's cache. Point both at the usual cache folder."""
+    if not getattr(sys, "frozen", False) or os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        return
+    home = Path.home()
+    if sys.platform == "win32":
+        cache = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        cache = home / "Library" / "Caches"
+    else:
+        cache = Path(os.environ.get("XDG_CACHE_HOME", home / ".cache"))
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(cache / "ms-playwright")
 
 
 def install_chromium() -> None:
@@ -90,8 +138,8 @@ def install_chromium() -> None:
     result = subprocess.run([*cmd, "install", "chromium"], env=get_driver_env(), capture_output=True, text=True)
     if result.returncode != 0:
         log.warning("Chromium download failed: %s", (result.stderr or result.stdout).strip()[-500:])
-        raise ProviderError("Couldn't find Chrome or Edge, and downloading a browser failed. "
-                            "Install Google Chrome and try again.")
+        raise ProviderError("Couldn't find a Chromium-based browser (Chrome, Edge, Brave, Vivaldi, Opera), and "
+                            "downloading one failed. Install one of them and try again.")
 
 
 # --- login window ------------------------------------------------------------------

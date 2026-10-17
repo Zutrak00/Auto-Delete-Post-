@@ -39,8 +39,10 @@ Already downloaded the Mac zip in a browser? Open its folder, type `bash ` (with
    as usual. The app remembers the login.
 2. Click **Run preview** to see exactly what would be deleted. Nothing is deleted until you click **Go Live**.
 
-X and Instagram need **Google Chrome or Microsoft Edge** on the computer. Windows always has Edge. If neither is
-found, the app downloads a browser once (about 150 MB).
+X and Instagram need a Chromium-based browser on the computer: **Chrome, Edge, Brave, Vivaldi, Opera or
+Chromium**. Windows always has Edge. Safari and Firefox can't be automated, so if none of those is found the app
+downloads a copy of Chromium once (about 150 MB). To use a specific browser, set `AUTODELETE_BROWSER_PATH` to its
+program file.
 
 Your settings are saved in `%APPDATA%\AutoDeletePosts` on Windows, `~/Library/Application Support/AutoDeletePosts`
 on Mac and `~/.local/share/autodeleteposts` on Linux.

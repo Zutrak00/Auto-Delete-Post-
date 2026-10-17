@@ -131,3 +131,42 @@ def test_engine_caps_runs_prunes_archive_and_closes_browser():
     assert provider.deleted == ["0", "1"]  # provider's safety cap beats the rule's 100
     assert provider.closed and result.finished
     assert sorted(i["id"] for i in store.archive(account_id)) == ["2", "3", "4"]
+
+
+def test_finds_other_chromium_browsers_on_mac(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from autodelete import browser
+
+    brave = tmp_path / "Applications" / "Brave Browser.app" / "Contents" / "MacOS" / "Brave Browser"
+    brave.parent.mkdir(parents=True)
+    brave.write_text("")
+    monkeypatch.setattr(browser.sys, "platform", "darwin")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert browser.other_browsers() == [str(brave)]
+
+
+def test_finds_other_chromium_browsers_on_windows(tmp_path, monkeypatch):
+    from autodelete import browser
+
+    vivaldi = tmp_path / "Vivaldi" / "Application" / "vivaldi.exe"
+    vivaldi.parent.mkdir(parents=True)
+    vivaldi.write_text("")
+    monkeypatch.setattr(browser.sys, "platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("PROGRAMFILES", raising=False)
+    monkeypatch.delenv("PROGRAMFILES(X86)", raising=False)
+    assert browser.other_browsers() == [str(vivaldi)]
+
+
+def test_packaged_app_keeps_downloaded_chromium(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from autodelete import browser
+
+    monkeypatch.setattr(browser.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(browser.sys, "platform", "darwin")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    browser._use_persistent_browser_folder()
+    assert browser.os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path / "Library" / "Caches" / "ms-playwright")
